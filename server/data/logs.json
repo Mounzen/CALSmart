@@ -1,0 +1,79 @@
+[
+  {
+    "id": "LOG1776276279677",
+    "date": "15/04/2026",
+    "heure": "20:04:39",
+    "user_id": "U1",
+    "user_nom": "CAL Smart Administrateur",
+    "role": "directeur",
+    "action": "LOGIN",
+    "detail": "Connexion depuis ::1",
+    "type": "info"
+  },
+  {
+    "id": "LOG1776276216481",
+    "date": "15/04/2026",
+    "heure": "20:03:36",
+    "user_id": "system",
+    "user_nom": "Système",
+    "role": "system",
+    "action": "LOGIN_ECHEC",
+    "detail": "Tentative échouée pour : Directeur",
+    "type": "security"
+  },
+  {
+    "id": "LOG1776276215162",
+    "date": "15/04/2026",
+    "heure": "20:03:35",
+    "user_id": "system",
+    "user_nom": "Système",
+    "role": "system",
+    "action": "LOGIN_ECHEC",
+    "detail": "Tentative échouée pour : Directeur",
+    "type": "security"
+  },
+  {
+    "id": "LOG1776276158532",
+    "date": "15/04/2026",
+    "heure": "20:02:38",
+    "user_id": "system",
+    "user_nom": "Système",
+    "role": "system",
+    "action": "LOGIN_ECHEC",
+    "detail": "Tentative échouée pour : Directeur",
+    "type": "security"
+  },
+  {
+    "id": "LOG1776275617354",
+    "date": "15/04/2026",
+    "heure": "19:53:37",
+    "user_id": "system",
+    "user_nom": "Système",
+    "role": "system",
+    "action": "LOGIN_ECHEC",
+    "detail": "Tentative échouée pour : Directeur",
+    "type": "security"
+  },
+  {
+    "id": "LOG1776275596035",
+    "date": "15/04/2026",
+    "heure": "19:53:16",
+    "user_id": "system",
+    "user_nom": "Système",
+    "role": "system",
+    "action": "LOGIN_ECHEC",
+    "detail": "Tentative échouée pour : Directeur",
+    "type": "security"
+  },
+  {
+    "id": "LOG1776275412919",
+    "date": "15/04/2026",
+    "heure": "19:50:12",
+    "user_id": "system",
+    "user_nom": "Système",
+    "role": "system",
+    "action": "LOGIN_ECHEC",
+    "detail": "Tentative échouée pour : directeur",
+    "type": "security"
+  }
+]
