@@ -11,7 +11,7 @@ import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
 import { randomBytes } from 'crypto'
-
+import path from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const DATA = join(__dirname, 'data')
 
@@ -1005,7 +1005,13 @@ app.get('/api/cal/pdf/:logement_id', (req, res) => {
     })
   })
 })
+// servir le build React
+app.use(express.static(path.join(__dirname, '../dist')))
 
+// fallback React
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'))
+})
 // ─── DÉMARRAGE ───────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 4000
