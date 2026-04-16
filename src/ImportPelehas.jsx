@@ -3,7 +3,7 @@
 // Import CSV depuis Pelehas AFI
 // Gère : Demandeurs · Logements · Attributions · Audiences élus
 // ═══════════════════════════════════════════════════════════════
-
+import { apiFetch } from "./Auth.jsx";
 import { useState, useRef, useCallback } from "react";
 
 const C = {
@@ -19,20 +19,16 @@ const F = { h:"'Syne',sans-serif", b:"'DM Sans',sans-serif" };
 // ─── API ─────────────────────────────────────────────────────────────────────
 const api = {
   post: async (path, body) => {
-    const r = await fetch(`/api${path}`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(body)
+    return await apiFetch(path, {
+      method: "POST",
+      body
     });
-    if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
   },
-  get: async (path) => {
-    const r = await fetch(`/api${path}`);
-    if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
-  },
-};
 
+  get: async (path) => {
+    return await apiFetch(path);
+  }
+};
 // ─── PARSE CSV ───────────────────────────────────────────────────────────────
 function parseCSV(text) {
   // Détecte séparateur ; ou , ou tabulation

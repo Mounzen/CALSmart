@@ -3,7 +3,7 @@
 // Module stats complet + import Excel audiences élus
 // À importer dans CALSmart.jsx
 // ═══════════════════════════════════════════════════════════════
-
+import { apiFetch } from "./Auth.jsx";
 import { useState, useEffect, useRef } from "react";
 
 const C = {
@@ -21,20 +21,16 @@ const PALETTE = [C.accent, C.blue, C.green, C.purple, C.amber, C.teal, C.red, "#
 // ─── API ─────────────────────────────────────────────────────────────────────
 const api = {
   get: async (path) => {
-    const r = await fetch(`/api${path}`);
-    if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
+    return await apiFetch(path);
   },
-  post: async (path, body) => {
-    const r = await fetch(`/api${path}`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
-  },
-};
 
+  post: async (path, body) => {
+    return await apiFetch(path, {
+      method: "POST",
+      body
+    });
+  }
+};
 // ─── ATOMS ───────────────────────────────────────────────────────────────────
 function Spin() {
   return <div style={{display:"flex",alignItems:"center",justifyContent:"center",

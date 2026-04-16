@@ -29,28 +29,29 @@ const F = { h:"'Syne',sans-serif", b:"'DM Sans',sans-serif" };
 // ─── API ─────────────────────────────────────────────────────────────────────
 const api = {
   get: async (path) => {
-    const r = await fetch(`/api${path}`);
-    if (!r.ok) throw new Error(`${r.status} ${path}`);
-    return r.json();
+    return await apiFetch(path);
   },
-  post: async (path, body) => {
-    const r = await fetch(`/api${path}`, {
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
-  },
-  put: async (path, body) => {
-    const r = await fetch(`/api${path}`, {
-      method:"PUT", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) throw new Error(`${r.status}`);
-    return r.json();
-  },
-};
 
+  post: async (path, body) => {
+    return await apiFetch(path, {
+      method: "POST",
+      body
+    });
+  },
+
+  put: async (path, body) => {
+    return await apiFetch(path, {
+      method: "PUT",
+      body
+    });
+  },
+
+  delete: async (path) => {
+    return await apiFetch(path, {
+      method: "DELETE"
+    });
+  }
+};
 function useApi(path) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
