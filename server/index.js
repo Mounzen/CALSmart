@@ -1029,11 +1029,24 @@ app.get('/api/cal/pdf/:logement_id', (req, res) => {
 
 // ─── FRONT STATIC (optionnel si dist existe) ─────────────────────────────────
 
-app.use(express.static(path.join(__dirname, "../dist")));
+const DIST_DIR = path.join(__dirname, '../dist')
+const DIST_INDEX = path.join(DIST_DIR, 'index.html')
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "../dist/index.html"));
-});
+console.log('DIST_DIR =', DIST_DIR)
+console.log('DIST exists =', existsSync(DIST_DIR))
+console.log('DIST_INDEX exists =', existsSync(DIST_INDEX))
+
+if (existsSync(DIST_DIR) && existsSync(DIST_INDEX)) {
+  app.use(express.static(DIST_DIR))
+
+  app.get('*', (req, res) => {
+    res.sendFile(DIST_INDEX)
+  })
+} else {
+  app.get('/', (req, res) => {
+    res.send('CALSmart API OK 🚀')
+  })
+}
 // ─── DÉMARRAGE ───────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
