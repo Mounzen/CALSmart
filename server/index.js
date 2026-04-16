@@ -4,49 +4,63 @@
  * Le client React local tourne sur port 3000 et proxifie /api vers ici
  */
 
-import express from 'express'
-import cors from 'cors'
-import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'fs'
-import { spawn } from 'child_process'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
-import { randomBytes } from 'crypto'
-import path from 'path'
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const DATA = join(__dirname, 'data')
+import express from 'express';
+import cors from 'cors';
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  unlinkSync,
+} from 'fs';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { randomBytes } from 'crypto';
+import path from 'path';
 
-const app = express()
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DATA = join(__dirname, 'data');
+const DIST_DIR = path.join(__dirname, '../dist');
+const DIST_INDEX = path.join(DIST_DIR, 'index.html');
 
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }))
-app.use(express.json())
+const app = express();
+
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
+app.use(express.json());
 
 // ─── ROUTES TEST / HEALTHCHECK ───────────────────────────────────────────────
 
-app.get('/', (req, res) => {
-  res.send('CALSmart API OK 🚀')
-})
-
 app.get('/api', (req, res) => {
-  res.json({ message: 'API CALSmart opérationnelle' })
-})
+  res.json({ message: 'API CALSmart opérationnelle' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, service: 'CALSmart' });
+});
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
 function readData(file) {
-  return JSON.parse(readFileSync(join(DATA, file), 'utf8'))
+  return JSON.parse(readFileSync(join(DATA, file), 'utf8'));
 }
 
 function writeData(file, data) {
-  writeFileSync(join(DATA, file), JSON.stringify(data, null, 2), 'utf8')
+  writeFileSync(join(DATA, file), JSON.stringify(data, null, 2), 'utf8');
 }
 
 // ─── SESSIONS EN MÉMOIRE ─────────────────────────────────────────────────────
 
-const SESSIONS = new Map()
-const SESSION_DURATION = 8 * 60 * 60 * 1000
+const SESSIONS = new Map();
+const SESSION_DURATION = 8 * 60 * 60 * 1000;
 
 function createSession(user) {
-  const token = randomBytes(32).toString('hex')
+  const token = randomBytes(32).toString('hex');
   SESSIONS.set(token, {
     user: {
       id: user.id,
@@ -58,45 +72,45 @@ function createSession(user) {
       secteur: user.secteur || null,
     },
     expires: Date.now() + SESSION_DURATION,
-  })
-  return token
+  });
+  return token;
 }
 
 function getSession(token) {
-  if (!token) return null
-  const session = SESSIONS.get(token)
-  if (!session) return null
+  if (!token) return null;
+  const session = SESSIONS.get(token);
+  if (!session) return null;
   if (Date.now() > session.expires) {
-    SESSIONS.delete(token)
-    return null
+    SESSIONS.delete(token);
+    return null;
   }
-  return session
+  return session;
 }
 
 // ─── MIDDLEWARE AUTH ─────────────────────────────────────────────────────────
 
 function requireAuth(req, res, next) {
-  const token = req.headers['x-auth-token']
-  const session = getSession(token)
-  if (!session) return res.status(401).json({ error: 'Non connecté' })
-  req.user = session.user
-  next()
+  const token = req.headers['x-auth-token'];
+  const session = getSession(token);
+  if (!session) return res.status(401).json({ error: 'Non connecté' });
+  req.user = session.user;
+  next();
 }
 
 function requireRole(...roles) {
   return (req, res, next) => {
     if (!roles.includes(req.user?.role)) {
-      return res.status(403).json({ error: 'Accès refusé' })
+      return res.status(403).json({ error: 'Accès refusé' });
     }
-    next()
-  }
+    next();
+  };
 }
 
 // ─── LOGS D'ACTIONS ──────────────────────────────────────────────────────────
 
 function log(user, action, detail = '', type = 'info') {
   try {
-    const logs = readData('logs.json')
+    const logs = readData('logs.json');
     logs.unshift({
       id: 'LOG' + Date.now(),
       date: new Date().toLocaleDateString('fr-FR'),
@@ -107,33 +121,33 @@ function log(user, action, detail = '', type = 'info') {
       action,
       detail,
       type,
-    })
-    writeData('logs.json', logs.slice(0, 500))
+    });
+    writeData('logs.json', logs.slice(0, 500));
   } catch (e) {
-    console.error('Log error:', e)
+    console.error('Log error:', e);
   }
 }
 
 // ─── ROUTES AUTH ─────────────────────────────────────────────────────────────
 
 app.post('/api/auth/login', (req, res) => {
-  const { login, password } = req.body
+  const { login, password } = req.body;
   if (!login || !password) {
-    return res.status(400).json({ error: 'Login et mot de passe requis' })
+    return res.status(400).json({ error: 'Login et mot de passe requis' });
   }
 
-  const users = readData('users.json')
+  const users = readData('users.json');
   const user = users.find(
     (u) => u.login === login && u.password === password && u.actif
-  )
+  );
 
   if (!user) {
-    log(null, 'LOGIN_ECHEC', `Tentative échouée pour : ${login}`, 'security')
-    return res.status(401).json({ error: 'Identifiants incorrects' })
+    log(null, 'LOGIN_ECHEC', `Tentative échouée pour : ${login}`, 'security');
+    return res.status(401).json({ error: 'Identifiants incorrects' });
   }
 
-  const token = createSession(user)
-  log(user, 'LOGIN', `Connexion depuis ${req.ip}`, 'info')
+  const token = createSession(user);
+  log(user, 'LOGIN', `Connexion depuis ${req.ip}`, 'info');
 
   res.json({
     token,
@@ -146,104 +160,104 @@ app.post('/api/auth/login', (req, res) => {
       elu_id: user.elu_id || null,
       secteur: user.secteur || null,
     },
-  })
-})
+  });
+});
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  res.json({ user: req.user })
-})
+  res.json({ user: req.user });
+});
 
 app.post('/api/auth/logout', requireAuth, (req, res) => {
-  const token = req.headers['x-auth-token']
-  log(req.user, 'LOGOUT', '', 'info')
-  SESSIONS.delete(token)
-  res.json({ ok: true })
-})
+  const token = req.headers['x-auth-token'];
+  log(req.user, 'LOGOUT', '', 'info');
+  SESSIONS.delete(token);
+  res.json({ ok: true });
+});
 
 app.post('/api/auth/change-password', requireAuth, (req, res) => {
-  const { ancien, nouveau } = req.body
-  const users = readData('users.json')
-  const idx = users.findIndex((u) => u.id === req.user.id)
+  const { ancien, nouveau } = req.body;
+  const users = readData('users.json');
+  const idx = users.findIndex((u) => u.id === req.user.id);
 
   if (idx === -1) {
-    return res.status(404).json({ error: 'Utilisateur non trouvé' })
+    return res.status(404).json({ error: 'Utilisateur non trouvé' });
   }
   if (users[idx].password !== ancien) {
-    return res.status(400).json({ error: 'Ancien mot de passe incorrect' })
+    return res.status(400).json({ error: 'Ancien mot de passe incorrect' });
   }
 
-  users[idx].password = nouveau
-  writeData('users.json', users)
-  log(req.user, 'CHANGE_PASSWORD', '', 'security')
-  res.json({ ok: true })
-})
+  users[idx].password = nouveau;
+  writeData('users.json', users);
+  log(req.user, 'CHANGE_PASSWORD', '', 'security');
+  res.json({ ok: true });
+});
 
 // ─── GESTION UTILISATEURS ────────────────────────────────────────────────────
 
 app.get('/api/users', requireAuth, requireRole('directeur'), (req, res) => {
-  const users = readData('users.json')
-  res.json(users.map((u) => ({ ...u, password: '***' })))
-})
+  const users = readData('users.json');
+  res.json(users.map((u) => ({ ...u, password: '***' })));
+});
 
 app.post('/api/users', requireAuth, requireRole('directeur'), (req, res) => {
-  const users = readData('users.json')
+  const users = readData('users.json');
   const newUser = {
     id: 'U' + (users.length + 1),
     ...req.body,
     created_at: new Date().toLocaleDateString('fr-FR'),
     actif: true,
-  }
-  users.push(newUser)
-  writeData('users.json', users)
-  log(req.user, 'CREATE_USER', `Créé : ${newUser.login} (${newUser.role})`, 'info')
-  res.status(201).json({ ...newUser, password: '***' })
-})
+  };
+  users.push(newUser);
+  writeData('users.json', users);
+  log(req.user, 'CREATE_USER', `Créé : ${newUser.login} (${newUser.role})`, 'info');
+  res.status(201).json({ ...newUser, password: '***' });
+});
 
 app.put('/api/users/:id', requireAuth, requireRole('directeur'), (req, res) => {
-  const users = readData('users.json')
-  const idx = users.findIndex((u) => u.id === req.params.id)
-  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' })
+  const users = readData('users.json');
+  const idx = users.findIndex((u) => u.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' });
 
-  users[idx] = { ...users[idx], ...req.body, id: users[idx].id }
-  writeData('users.json', users)
-  log(req.user, 'UPDATE_USER', `Modifié : ${users[idx].login}`, 'info')
-  res.json({ ...users[idx], password: '***' })
-})
+  users[idx] = { ...users[idx], ...req.body, id: users[idx].id };
+  writeData('users.json', users);
+  log(req.user, 'UPDATE_USER', `Modifié : ${users[idx].login}`, 'info');
+  res.json({ ...users[idx], password: '***' });
+});
 
 // ─── ROUTE LOGS ──────────────────────────────────────────────────────────────
 
 app.get('/api/logs', requireAuth, requireRole('directeur', 'agent'), (req, res) => {
-  const logs = readData('logs.json')
-  const { user_id, action, type, limit = 100 } = req.query
+  const logs = readData('logs.json');
+  const { user_id, action, type, limit = 100 } = req.query;
 
-  let result = logs
-  if (user_id) result = result.filter((l) => l.user_id === user_id)
-  if (action) result = result.filter((l) => l.action.includes(action))
-  if (type) result = result.filter((l) => l.type === type)
+  let result = logs;
+  if (user_id) result = result.filter((l) => l.user_id === user_id);
+  if (action) result = result.filter((l) => l.action.includes(action));
+  if (type) result = result.filter((l) => l.type === type);
 
-  res.json(result.slice(0, parseInt(limit)))
-})
+  res.json(result.slice(0, parseInt(limit, 10)));
+});
 
 // ─── DECISIONS CAL ───────────────────────────────────────────────────────────
 
 app.get('/api/decisions-cal', requireAuth, (req, res) => {
-  const decisions = readData('decisions_cal.json')
-  const { logement_id, date_cal } = req.query
+  const decisions = readData('decisions_cal.json');
+  const { logement_id, date_cal } = req.query;
 
-  let result = decisions
-  if (logement_id) result = result.filter((d) => d.logement_id === logement_id)
-  if (date_cal) result = result.filter((d) => d.date_cal === date_cal)
+  let result = decisions;
+  if (logement_id) result = result.filter((d) => d.logement_id === logement_id);
+  if (date_cal) result = result.filter((d) => d.date_cal === date_cal);
 
-  res.json(result)
-})
+  res.json(result);
+});
 
 app.post('/api/decisions-cal', requireAuth, requireRole('agent', 'directeur'), (req, res) => {
-  const { logement_id, logement_ref, logement_adresse, date_cal, candidats, observations } = req.body
-  const decisions = readData('decisions_cal.json')
+  const { logement_id, logement_ref, logement_adresse, date_cal, candidats, observations } = req.body;
+  const decisions = readData('decisions_cal.json');
 
   const existing = decisions.findIndex(
     (d) => d.logement_id === logement_id && d.date_cal === date_cal
-  )
+  );
 
   const decision = {
     id: 'CAL' + Date.now(),
@@ -257,24 +271,24 @@ app.post('/api/decisions-cal', requireAuth, requireRole('agent', 'directeur'), (
     agent_nom: `${req.user.prenom} ${req.user.nom}`,
     created_at: new Date().toISOString(),
     statut: 'validée',
-  }
+  };
 
   if (existing >= 0) {
-    decisions[existing] = { ...decisions[existing], ...decision, id: decisions[existing].id }
+    decisions[existing] = { ...decisions[existing], ...decision, id: decisions[existing].id };
   } else {
-    decisions.unshift(decision)
+    decisions.unshift(decision);
   }
 
-  writeData('decisions_cal.json', decisions)
+  writeData('decisions_cal.json', decisions);
 
-  const audiences = readData('audiences.json')
-  const attribue = candidats?.find((c) => c.decision?.includes('Retenu rang 1'))
+  const audiences = readData('audiences.json');
+  const attribue = candidats?.find((c) => c.decision?.includes('Retenu rang 1'));
   if (attribue) {
-    const audIdx = audiences.findIndex((a) => a.dem_id === attribue.dem_id)
+    const audIdx = audiences.findIndex((a) => a.dem_id === attribue.dem_id);
     if (audIdx >= 0) {
-      audiences[audIdx].statut = 'Attribué'
-      audiences[audIdx].quartier_attribue = logement_adresse
-      writeData('audiences.json', audiences)
+      audiences[audIdx].statut = 'Attribué';
+      audiences[audIdx].quartier_attribue = logement_adresse;
+      writeData('audiences.json', audiences);
     }
   }
 
@@ -285,39 +299,39 @@ app.post('/api/decisions-cal', requireAuth, requireRole('agent', 'directeur'), (
       candidats?.find((c) => c.rang === 1)?.nom || '—'
     }`,
     'info'
-  )
+  );
 
-  res.status(201).json(decision)
-})
+  res.status(201).json(decision);
+});
 
 app.get('/api/decisions-cal/demandeur/:dem_id', requireAuth, (req, res) => {
-  const decisions = readData('decisions_cal.json')
+  const decisions = readData('decisions_cal.json');
   const result = decisions
     .filter((d) => d.candidats?.some((c) => c.dem_id === req.params.dem_id))
     .map((d) => ({
       ...d,
       candidat: d.candidats.find((c) => c.dem_id === req.params.dem_id),
-    }))
+    }));
 
-  res.json(result)
-})
+  res.json(result);
+});
 
 // ─── SCORING ENGINE ──────────────────────────────────────────────────────────
 
-const TYP = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6']
-const ti = (t) => TYP.indexOf(t)
-const inRange = (t, mn, mx) => ti(t) >= ti(mn) && ti(t) <= ti(mx)
+const TYP = ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'];
+const ti = (t) => TYP.indexOf(t);
+const inRange = (t, mn, mx) => ti(t) >= ti(mn) && ti(t) <= ti(mx);
 
-function computeScore(dem, log, biais) {
-  const excl = []
+function computeScore(dem, logt, biais) {
+  const excl = [];
 
-  if (dem.statut !== 'active') excl.push('Demande non active')
-  if (!inRange(log.typ, dem.typ_min, dem.typ_max)) excl.push('Typologie incompatible')
-  if (dem.pmr && !log.pmr) excl.push('PMR requis — logement non adapté')
-  if (dem.rdc && !log.rdc) excl.push('RDC requis — non disponible')
+  if (dem.statut !== 'active') excl.push('Demande non active');
+  if (!inRange(logt.typ, dem.typ_min, dem.typ_max)) excl.push('Typologie incompatible');
+  if (dem.pmr && !logt.pmr) excl.push('PMR requis — logement non adapté');
+  if (dem.rdc && !logt.rdc) excl.push('RDC requis — non disponible');
 
-  const te = (log.loyer / dem.rev) * 100
-  if (te > 40) excl.push(`Taux d'effort ${te.toFixed(0)}% trop élevé`)
+  const te = (logt.loyer / dem.rev) * 100;
+  if (te > 40) excl.push(`Taux d'effort ${te.toFixed(0)}% trop élevé`);
 
   if (excl.length) {
     return {
@@ -327,62 +341,69 @@ function computeScore(dem, log, biais) {
       te: te.toFixed(1),
       scores: {},
       biais: {},
-    }
+    };
   }
 
-  const sTyp = log.typ === dem.typ_v ? 20 : 15
-  const np = dem.adultes + dem.enfants
-  const idx = ti(log.typ)
-  const sComp = np >= idx && np <= idx + 2 ? 15 : np === idx - 1 || np === idx + 3 ? 10 : np === idx + 4 ? 5 : 0
-  const sTaux = te <= 25 ? 20 : te <= 30 ? 16 : te <= 35 ? 10 : te <= 40 ? 5 : 0
-  const sAnc = dem.anc >= 36 ? 10 : dem.anc >= 24 ? 8 : dem.anc >= 12 ? 5 : dem.anc >= 6 ? 3 : 1
+  const sTyp = logt.typ === dem.typ_v ? 20 : 15;
+  const np = dem.adultes + dem.enfants;
+  const idx = ti(logt.typ);
+  const sComp =
+    np >= idx && np <= idx + 2
+      ? 15
+      : np === idx - 1 || np === idx + 3
+      ? 10
+      : np === idx + 4
+      ? 5
+      : 0;
+  const sTaux = te <= 25 ? 20 : te <= 30 ? 16 : te <= 35 ? 10 : te <= 40 ? 5 : 0;
+  const sAnc = dem.anc >= 36 ? 10 : dem.anc >= 24 ? 8 : dem.anc >= 12 ? 5 : dem.anc >= 6 ? 3 : 1;
 
-  let sUrg = 0
-  if (dem.sans_log) sUrg += 6
-  if (dem.violences) sUrg += 5
-  if (dem.handicap) sUrg += 4
-  if (dem.expulsion) sUrg += 5
-  if (dem.suroc) sUrg += 4
-  if (dem.grossesse) sUrg += 3
-  if (dem.urgence && sUrg < 4) sUrg += 3
-  sUrg = Math.min(sUrg, 15)
+  let sUrg = 0;
+  if (dem.sans_log) sUrg += 6;
+  if (dem.violences) sUrg += 5;
+  if (dem.handicap) sUrg += 4;
+  if (dem.expulsion) sUrg += 5;
+  if (dem.suroc) sUrg += 4;
+  if (dem.grossesse) sUrg += 3;
+  if (dem.urgence && sUrg < 4) sUrg += 3;
+  sUrg = Math.min(sUrg, 15);
 
-  const sLoc = dem.quartiers.includes(log.quartier) ? 10 : dem.secteurs.includes(log.secteur) ? 8 : 2
-  const sPrio = dem.dalo || dem.prio_expulsion ? 5 : dem.mutation || dem.prio_handicap ? 3 : 0
-  const sDos = dem.pieces ? 5 : 1
-  const base = sTyp + sComp + sTaux + sAnc + sUrg + sLoc + sPrio + sDos
+  const sLoc = dem.quartiers.includes(logt.quartier) ? 10 : dem.secteurs.includes(logt.secteur) ? 8 : 2;
+  const sPrio = dem.dalo || dem.prio_expulsion ? 5 : dem.mutation || dem.prio_handicap ? 3 : 0;
+  const sDos = dem.pieces ? 5 : 1;
+  const base = sTyp + sComp + sTaux + sAnc + sUrg + sLoc + sPrio + sDos;
 
   const hb = biais[dem.id] || {
     nb_presentations: 0,
     nb_refus_non_motives: 0,
     derniere_proposition_mois: null,
-  }
+  };
 
-  let bBonus = 0
-  let bMalus = 0
-  const bAlerts = []
+  let bBonus = 0;
+  let bMalus = 0;
+  const bAlerts = [];
 
   if (hb.nb_presentations === 0) {
-    bBonus += 5
-    bAlerts.push({ type: 'bonus', msg: 'Jamais présenté en CAL (+5)' })
+    bBonus += 5;
+    bAlerts.push({ type: 'bonus', msg: 'Jamais présenté en CAL (+5)' });
   }
   if (hb.derniere_proposition_mois !== null && hb.derniere_proposition_mois < 2) {
-    bMalus += 5
-    bAlerts.push({ type: 'malus', msg: 'Proposition il y a moins de 2 mois (−5)' })
+    bMalus += 5;
+    bAlerts.push({ type: 'malus', msg: 'Proposition il y a moins de 2 mois (−5)' });
   }
   if (hb.nb_refus_non_motives >= 2) {
-    bMalus += 8
-    bAlerts.push({ type: 'malus', msg: `${hb.nb_refus_non_motives} refus non motivés (−8)` })
+    bMalus += 8;
+    bAlerts.push({ type: 'malus', msg: `${hb.nb_refus_non_motives} refus non motivés (−8)` });
   } else if (hb.nb_refus_non_motives === 1) {
-    bMalus += 3
-    bAlerts.push({ type: 'malus', msg: '1 refus non motivé (−3)' })
+    bMalus += 3;
+    bAlerts.push({ type: 'malus', msg: '1 refus non motivé (−3)' });
   }
   if (hb.nb_presentations >= 3) {
-    bBonus += 4
-    bAlerts.push({ type: 'bonus', msg: '3+ présentations sans attribution (+4)' })
+    bBonus += 4;
+    bAlerts.push({ type: 'bonus', msg: '3+ présentations sans attribution (+4)' });
   }
 
-  const total = Math.min(Math.max(base + bBonus - bMalus, 0), 100)
+  const total = Math.min(Math.max(base + bBonus - bMalus, 0), 100);
 
   return {
     eligible: true,
@@ -405,35 +426,35 @@ function computeScore(dem, log, biais) {
       malus: bMalus,
       alerts: bAlerts,
     },
-  }
+  };
 }
 
 // ─── ROUTES : DEMANDEURS ─────────────────────────────────────────────────────
 
 app.get('/api/demandeurs', (req, res) => {
-  const demandeurs = readData('demandeurs.json')
-  const { statut, search } = req.query
+  const demandeurs = readData('demandeurs.json');
+  const { statut, search } = req.query;
 
-  let result = demandeurs
-  if (statut) result = result.filter((d) => d.statut === statut)
+  let result = demandeurs;
+  if (statut) result = result.filter((d) => d.statut === statut);
   if (search) {
-    const q = search.toLowerCase()
-    result = result.filter((d) => `${d.nom} ${d.prenom} ${d.nud}`.toLowerCase().includes(q))
+    const q = search.toLowerCase();
+    result = result.filter((d) => `${d.nom} ${d.prenom} ${d.nud}`.toLowerCase().includes(q));
   }
 
-  res.json(result)
-})
+  res.json(result);
+});
 
 app.get('/api/demandeurs/:id', (req, res) => {
-  const demandeurs = readData('demandeurs.json')
-  const d = demandeurs.find((x) => x.id === req.params.id)
-  if (!d) return res.status(404).json({ error: 'Demandeur non trouvé' })
-  res.json(d)
-})
+  const demandeurs = readData('demandeurs.json');
+  const d = demandeurs.find((x) => x.id === req.params.id);
+  if (!d) return res.status(404).json({ error: 'Demandeur non trouvé' });
+  res.json(d);
+});
 
 app.post('/api/demandeurs', (req, res) => {
-  const demandeurs = readData('demandeurs.json')
-  const newId = 'D' + (demandeurs.length + 1)
+  const demandeurs = readData('demandeurs.json');
+  const newId = 'D' + (demandeurs.length + 1);
   const dem = {
     id: newId,
     ...req.body,
@@ -445,80 +466,80 @@ app.post('/api/demandeurs', (req, res) => {
         detail: 'Saisie manuelle',
       },
     ],
-  }
+  };
 
-  demandeurs.push(dem)
-  writeData('demandeurs.json', demandeurs)
-  res.status(201).json(dem)
-})
+  demandeurs.push(dem);
+  writeData('demandeurs.json', demandeurs);
+  res.status(201).json(dem);
+});
 
 app.put('/api/demandeurs/:id', (req, res) => {
-  const demandeurs = readData('demandeurs.json')
-  const idx = demandeurs.findIndex((d) => d.id === req.params.id)
-  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' })
+  const demandeurs = readData('demandeurs.json');
+  const idx = demandeurs.findIndex((d) => d.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' });
 
-  demandeurs[idx] = { ...demandeurs[idx], ...req.body }
-  writeData('demandeurs.json', demandeurs)
-  res.json(demandeurs[idx])
-})
+  demandeurs[idx] = { ...demandeurs[idx], ...req.body };
+  writeData('demandeurs.json', demandeurs);
+  res.json(demandeurs[idx]);
+});
 
 // ─── ROUTES : LOGEMENTS ──────────────────────────────────────────────────────
 
 app.get('/api/logements', (req, res) => {
-  const logements = readData('logements.json')
-  res.json(logements)
-})
+  const logements = readData('logements.json');
+  res.json(logements);
+});
 
 app.get('/api/logements/:id', (req, res) => {
-  const logements = readData('logements.json')
-  const l = logements.find((x) => x.id === req.params.id)
-  if (!l) return res.status(404).json({ error: 'Logement non trouvé' })
-  res.json(l)
-})
+  const logements = readData('logements.json');
+  const l = logements.find((x) => x.id === req.params.id);
+  if (!l) return res.status(404).json({ error: 'Logement non trouvé' });
+  res.json(l);
+});
 
 app.post('/api/logements', (req, res) => {
-  const logements = readData('logements.json')
-  const newId = 'L' + (logements.length + 1)
-  const logt = { id: newId, ...req.body }
+  const logements = readData('logements.json');
+  const newId = 'L' + (logements.length + 1);
+  const logt = { id: newId, ...req.body };
 
-  logements.push(logt)
-  writeData('logements.json', logements)
-  res.status(201).json(logt)
-})
+  logements.push(logt);
+  writeData('logements.json', logements);
+  res.status(201).json(logt);
+});
 
 app.put('/api/logements/:id', (req, res) => {
-  const logements = readData('logements.json')
-  const idx = logements.findIndex((l) => l.id === req.params.id)
-  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' })
+  const logements = readData('logements.json');
+  const idx = logements.findIndex((l) => l.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' });
 
-  logements[idx] = { ...logements[idx], ...req.body }
-  writeData('logements.json', logements)
-  res.json(logements[idx])
-})
+  logements[idx] = { ...logements[idx], ...req.body };
+  writeData('logements.json', logements);
+  res.json(logements[idx]);
+});
 
 // ─── ROUTES : MATCHING ───────────────────────────────────────────────────────
 
 app.get('/api/matching/:logement_id', (req, res) => {
-  const logements = readData('logements.json')
-  const demandeurs = readData('demandeurs.json')
-  const ref = readData('referentiels.json')
+  const logements = readData('logements.json');
+  const demandeurs = readData('demandeurs.json');
+  const ref = readData('referentiels.json');
 
-  const logt = logements.find((l) => l.id === req.params.logement_id)
-  if (!logt) return res.status(404).json({ error: 'Logement non trouvé' })
+  const logt = logements.find((l) => l.id === req.params.logement_id);
+  if (!logt) return res.status(404).json({ error: 'Logement non trouvé' });
 
   const results = demandeurs.map((dem) => ({
     dem,
     res: computeScore(dem, logt, ref.historique_biais),
-  }))
+  }));
 
   const eligible = results
     .filter((x) => x.res.eligible)
     .sort((a, b) => b.res.total - a.res.total)
-    .map((x, i) => ({ ...x, rang: i + 1, top4: i < 4 }))
+    .map((x, i) => ({ ...x, rang: i + 1, top4: i < 4 }));
 
-  const ineligible = results.filter((x) => !x.res.eligible)
+  const ineligible = results.filter((x) => !x.res.eligible);
 
-  const audiences = readData('audiences.json')
+  const audiences = readData('audiences.json');
 
   res.json({
     logement: logt,
@@ -532,14 +553,14 @@ app.get('/api/matching/:logement_id', (req, res) => {
         audiences.some((a) => a.dem_id === x.dem.id && a.favorable)
       ).length,
     },
-  })
-})
+  });
+});
 
 // ─── ROUTE : MATCHING CANDIDAT ───────────────────────────────────────────────
 
 app.post('/api/match-candidat', (req, res) => {
-  const demandeurs = readData('demandeurs.json')
-  const { nud, nom, prenom, date_naissance } = req.body
+  const demandeurs = readData('demandeurs.json');
+  const { nud, nom, prenom, date_naissance } = req.body;
 
   const normalize = (s) =>
     (s || '')
@@ -548,17 +569,17 @@ app.post('/api/match-candidat', (req, res) => {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[-']/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/\s+/g, ' ');
 
-  let match = null
-  let niveau = null
-  let confiance = null
+  let match = null;
+  let niveau = null;
+  let confiance = null;
 
   if (nud && nud.trim()) {
-    match = demandeurs.find((d) => d.nud && d.nud.trim() === nud.trim())
+    match = demandeurs.find((d) => d.nud && d.nud.trim() === nud.trim());
     if (match) {
-      niveau = 1
-      confiance = 'certain'
+      niveau = 1;
+      confiance = 'certain';
     }
   }
 
@@ -569,10 +590,10 @@ app.post('/api/match-candidat', (req, res) => {
         normalize(d.prenom) === normalize(prenom) &&
         d.date_naissance &&
         d.date_naissance === date_naissance
-    )
+    );
     if (match) {
-      niveau = 2
-      confiance = 'fort'
+      niveau = 2;
+      confiance = 'fort';
     }
   }
 
@@ -581,12 +602,12 @@ app.post('/api/match-candidat', (req, res) => {
       (d) =>
         normalize(d.nom) === normalize(nom) &&
         normalize(d.prenom) === normalize(prenom)
-    )
+    );
 
     if (candidates.length === 1) {
-      match = candidates[0]
-      niveau = 3
-      confiance = 'probable'
+      match = candidates[0];
+      niveau = 3;
+      confiance = 'probable';
     } else if (candidates.length > 1) {
       return res.json({
         found: false,
@@ -600,14 +621,14 @@ app.post('/api/match-candidat', (req, res) => {
           sit: d.sit,
         })),
         message: `${candidates.length} homonymes trouvés — sélection manuelle requise`,
-      })
+      });
     }
   }
 
   if (!match && nom) {
     const suggestions = demandeurs
       .filter((d) => normalize(d.nom) === normalize(nom))
-      .slice(0, 3)
+      .slice(0, 3);
 
     if (suggestions.length > 0) {
       return res.json({
@@ -621,7 +642,7 @@ app.post('/api/match-candidat', (req, res) => {
           compo: d.compo,
         })),
         message: 'Nom trouvé mais prénom non correspondant — vérification requise',
-      })
+      });
     }
   }
 
@@ -644,20 +665,20 @@ app.post('/api/match-candidat', (req, res) => {
         violences: match.violences,
         sans_log: match.sans_log,
       },
-    })
+    });
   }
 
-  return res.json({ found: false, message: 'Aucun candidat trouvé' })
-})
+  return res.json({ found: false, message: 'Aucun candidat trouvé' });
+});
 
 // ─── IMPORT BATCH AUDIENCES ──────────────────────────────────────────────────
 
 app.post('/api/import/audiences', async (req, res) => {
-  const { rows } = req.body
-  if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows requis' })
+  const { rows } = req.body;
+  if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows requis' });
 
-  const demandeurs = readData('demandeurs.json')
-  const audiences = readData('audiences.json')
+  const demandeurs = readData('demandeurs.json');
+  const audiences = readData('audiences.json');
 
   const normalize = (s) =>
     (s || '')
@@ -666,21 +687,21 @@ app.post('/api/import/audiences', async (req, res) => {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[-']/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/\s+/g, ' ');
 
-  const results = { imported: 0, matched: 0, unmatched: 0, errors: 0 }
-  const newAudiences = [...audiences]
+  const results = { imported: 0, matched: 0, unmatched: 0, errors: 0 };
+  const newAudiences = [...audiences];
 
   for (const row of rows) {
     try {
-      let dem_id = row.dem_id || null
-      let match_niveau = null
+      let dem_id = row.dem_id || null;
+      let match_niveau = null;
 
       if (!dem_id || dem_id === 'IMPORT') {
-        const { nud, dem_nom, dem_prenom, dem_ddn } = row
-        let matched = null
+        const { nud, dem_nom, dem_prenom, dem_ddn } = row;
+        let matched = null;
 
-        if (nud) matched = demandeurs.find((d) => d.nud === nud)
+        if (nud) matched = demandeurs.find((d) => d.nud === nud);
 
         if (!matched && dem_nom && dem_prenom && dem_ddn) {
           matched = demandeurs.find(
@@ -688,7 +709,7 @@ app.post('/api/import/audiences', async (req, res) => {
               normalize(d.nom) === normalize(dem_nom) &&
               normalize(d.prenom) === normalize(dem_prenom) &&
               d.date_naissance === dem_ddn
-          )
+          );
         }
 
         if (!matched && dem_nom && dem_prenom) {
@@ -696,16 +717,16 @@ app.post('/api/import/audiences', async (req, res) => {
             (d) =>
               normalize(d.nom) === normalize(dem_nom) &&
               normalize(d.prenom) === normalize(dem_prenom)
-          )
-          if (candidates.length === 1) matched = candidates[0]
+          );
+          if (candidates.length === 1) matched = candidates[0];
         }
 
         if (matched) {
-          dem_id = matched.id
-          match_niveau = 'auto'
-          results.matched++
+          dem_id = matched.id;
+          match_niveau = 'auto';
+          results.matched++;
         } else {
-          results.unmatched++
+          results.unmatched++;
         }
       }
 
@@ -726,26 +747,26 @@ app.post('/api/import/audiences', async (req, res) => {
         jours_proposition_attribution: null,
         _match_niveau: match_niveau,
         _dem_nom_original: row.dem_nom || '',
-      }
+      };
 
-      newAudiences.push(newAud)
-      results.imported++
+      newAudiences.push(newAud);
+      results.imported++;
     } catch (e) {
-      results.errors++
+      results.errors++;
     }
   }
 
-  writeData('audiences.json', newAudiences)
-  res.json(results)
-})
+  writeData('audiences.json', newAudiences);
+  res.json(results);
+});
 
 // ─── IMPORT BATCH DEMANDEURS ─────────────────────────────────────────────────
 
 app.post('/api/import/demandeurs', (req, res) => {
-  const { rows } = req.body
-  if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows requis' })
+  const { rows } = req.body;
+  if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows requis' });
 
-  const demandeurs = readData('demandeurs.json')
+  const demandeurs = readData('demandeurs.json');
 
   const normalize = (s) =>
     (s || '')
@@ -754,25 +775,25 @@ app.post('/api/import/demandeurs', (req, res) => {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/[-']/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/\s+/g, ' ');
 
-  const results = { imported: 0, updated: 0, skipped: 0, errors: 0 }
+  const results = { imported: 0, updated: 0, skipped: 0, errors: 0 };
 
   for (const row of rows) {
     try {
-      let existing = null
-      if (row.nud) existing = demandeurs.find((d) => d.nud === row.nud)
+      let existing = null;
+      if (row.nud) existing = demandeurs.find((d) => d.nud === row.nud);
 
       if (!existing && row.nom && row.prenom) {
         existing = demandeurs.find(
           (d) =>
             normalize(d.nom) === normalize(row.nom) &&
             normalize(d.prenom) === normalize(row.prenom)
-        )
+        );
       }
 
       if (existing) {
-        const idx = demandeurs.indexOf(existing)
+        const idx = demandeurs.indexOf(existing);
         demandeurs[idx] = {
           ...existing,
           nud: existing.nud || row.nud,
@@ -781,10 +802,10 @@ app.post('/api/import/demandeurs', (req, res) => {
           sit: existing.sit || row.sit,
           date_naissance: existing.date_naissance || row.date_naissance,
           _pelehas_sync: new Date().toISOString(),
-        }
-        results.updated++
+        };
+        results.updated++;
       } else {
-        const newId = 'D' + (demandeurs.length + 1)
+        const newId = 'D' + (demandeurs.length + 1);
         demandeurs.push({
           id: newId,
           ...row,
@@ -797,155 +818,155 @@ app.post('/api/import/demandeurs', (req, res) => {
             },
           ],
           _pelehas_sync: new Date().toISOString(),
-        })
-        results.imported++
+        });
+        results.imported++;
       }
     } catch (e) {
-      results.errors++
+      results.errors++;
     }
   }
 
-  writeData('demandeurs.json', demandeurs)
-  res.json(results)
-})
+  writeData('demandeurs.json', demandeurs);
+  res.json(results);
+});
 
 // ─── IMPORT BATCH LOGEMENTS ──────────────────────────────────────────────────
 
 app.post('/api/import/logements', (req, res) => {
-  const { rows } = req.body
-  if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows requis' })
+  const { rows } = req.body;
+  if (!Array.isArray(rows)) return res.status(400).json({ error: 'rows requis' });
 
-  const logements = readData('logements.json')
-  const results = { imported: 0, updated: 0, errors: 0 }
+  const logements = readData('logements.json');
+  const results = { imported: 0, updated: 0, errors: 0 };
 
   for (const row of rows) {
     try {
-      const existing = logements.find((l) => l.ref && l.ref === row.ref)
+      const existing = logements.find((l) => l.ref && l.ref === row.ref);
 
       if (existing) {
-        const idx = logements.indexOf(existing)
-        logements[idx] = { ...existing, ...row, id: existing.id }
-        results.updated++
+        const idx = logements.indexOf(existing);
+        logements[idx] = { ...existing, ...row, id: existing.id };
+        results.updated++;
       } else {
-        logements.push({ id: 'L' + (logements.length + 1), ...row })
-        results.imported++
+        logements.push({ id: 'L' + (logements.length + 1), ...row });
+        results.imported++;
       }
     } catch (e) {
-      results.errors++
+      results.errors++;
     }
   }
 
-  writeData('logements.json', logements)
-  res.json(results)
-})
+  writeData('logements.json', logements);
+  res.json(results);
+});
 
 // ─── AUDIENCES ───────────────────────────────────────────────────────────────
 
 app.get('/api/audiences', (req, res) => {
-  const audiences = readData('audiences.json')
-  const { elu_id, dem_id, statut } = req.query
+  const audiences = readData('audiences.json');
+  const { elu_id, dem_id, statut } = req.query;
 
-  let result = audiences
-  if (elu_id) result = result.filter((a) => a.elu_id === elu_id)
-  if (dem_id) result = result.filter((a) => a.dem_id === dem_id)
-  if (statut) result = result.filter((a) => a.statut === statut)
+  let result = audiences;
+  if (elu_id) result = result.filter((a) => a.elu_id === elu_id);
+  if (dem_id) result = result.filter((a) => a.dem_id === dem_id);
+  if (statut) result = result.filter((a) => a.statut === statut);
 
-  res.json(result)
-})
+  res.json(result);
+});
 
 app.post('/api/audiences', (req, res) => {
-  const audiences = readData('audiences.json')
-  const newId = 'A' + (audiences.length + 1)
-  const aud = { id: newId, ...req.body }
+  const audiences = readData('audiences.json');
+  const newId = 'A' + (audiences.length + 1);
+  const aud = { id: newId, ...req.body };
 
-  audiences.push(aud)
-  writeData('audiences.json', audiences)
-  res.status(201).json(aud)
-})
+  audiences.push(aud);
+  writeData('audiences.json', audiences);
+  res.status(201).json(aud);
+});
 
 app.put('/api/audiences/:id', (req, res) => {
-  const audiences = readData('audiences.json')
-  const idx = audiences.findIndex((a) => a.id === req.params.id)
-  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' })
+  const audiences = readData('audiences.json');
+  const idx = audiences.findIndex((a) => a.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' });
 
-  audiences[idx] = { ...audiences[idx], ...req.body }
-  writeData('audiences.json', audiences)
-  res.json(audiences[idx])
-})
+  audiences[idx] = { ...audiences[idx], ...req.body };
+  writeData('audiences.json', audiences);
+  res.json(audiences[idx]);
+});
 
 // ─── NOTIFICATIONS ───────────────────────────────────────────────────────────
 
 app.get('/api/notifications', (req, res) => {
-  const notifications = readData('notifications.json')
-  const { elu_id, type, lu } = req.query
+  const notifications = readData('notifications.json');
+  const { elu_id, type, lu } = req.query;
 
-  let result = notifications
-  if (elu_id) result = result.filter((n) => n.elu_id === elu_id)
-  if (type) result = result.filter((n) => n.type === type)
-  if (lu !== undefined) result = result.filter((n) => n.lu === (lu === 'true'))
+  let result = notifications;
+  if (elu_id) result = result.filter((n) => n.elu_id === elu_id);
+  if (type) result = result.filter((n) => n.type === type);
+  if (lu !== undefined) result = result.filter((n) => n.lu === (lu === 'true'));
 
-  res.json(result)
-})
+  res.json(result);
+});
 
 app.put('/api/notifications/:id/lu', (req, res) => {
-  const notifications = readData('notifications.json')
-  const idx = notifications.findIndex((n) => n.id === req.params.id)
-  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' })
+  const notifications = readData('notifications.json');
+  const idx = notifications.findIndex((n) => n.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Non trouvé' });
 
-  notifications[idx].lu = true
-  writeData('notifications.json', notifications)
-  res.json(notifications[idx])
-})
+  notifications[idx].lu = true;
+  writeData('notifications.json', notifications);
+  res.json(notifications[idx]);
+});
 
 app.put('/api/notifications/tout-marquer-lu', (req, res) => {
-  const notifications = readData('notifications.json')
-  const { elu_id } = req.body
+  const notifications = readData('notifications.json');
+  const { elu_id } = req.body;
 
   notifications.forEach((n) => {
-    if (!elu_id || n.elu_id === elu_id) n.lu = true
-  })
+    if (!elu_id || n.elu_id === elu_id) n.lu = true;
+  });
 
-  writeData('notifications.json', notifications)
-  res.json({ ok: true })
-})
+  writeData('notifications.json', notifications);
+  res.json({ ok: true });
+});
 
 // ─── ÉLUS / RÉFÉRENTIELS ─────────────────────────────────────────────────────
 
 app.get('/api/elus', (req, res) => {
-  const ref = readData('referentiels.json')
-  res.json(ref.elus)
-})
+  const ref = readData('referentiels.json');
+  res.json(ref.elus);
+});
 
 app.get('/api/referentiels', (req, res) => {
-  const ref = readData('referentiels.json')
-  res.json(ref)
-})
+  const ref = readData('referentiels.json');
+  res.json(ref);
+});
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 
 app.get('/api/dashboard', (req, res) => {
-  const demandeurs = readData('demandeurs.json')
-  const logements = readData('logements.json')
-  const audiences = readData('audiences.json')
-  const notifications = readData('notifications.json')
+  const demandeurs = readData('demandeurs.json');
+  const logements = readData('logements.json');
+  const audiences = readData('audiences.json');
+  const notifications = readData('notifications.json');
 
-  const actifs = demandeurs.filter((d) => d.statut === 'active')
+  const actifs = demandeurs.filter((d) => d.statut === 'active');
   const urgents = actifs.filter(
     (d) => d.dalo || d.prio_expulsion || d.sans_log || d.violences
-  )
-  const incomplets = actifs.filter((d) => !d.pieces)
+  );
+  const incomplets = actifs.filter((d) => !d.pieces);
 
-  const parQuartier = {}
+  const parQuartier = {};
   actifs.forEach((d) => {
     d.quartiers.forEach((q) => {
-      if (!parQuartier[q]) parQuartier[q] = 0
-      parQuartier[q]++
-    })
-  })
+      if (!parQuartier[q]) parQuartier[q] = 0;
+      parQuartier[q]++;
+    });
+  });
 
   const attribues = audiences.filter(
     (a) => a.statut === 'Attribué' && a.jours_audience_proposition
-  )
+  );
 
   const delaiMoyen = attribues.length
     ? Math.round(
@@ -955,7 +976,7 @@ app.get('/api/dashboard', (req, res) => {
           0
         ) / attribues.length
       )
-    : null
+    : null;
 
   res.json({
     nb_demandeurs_actifs: actifs.length,
@@ -976,48 +997,60 @@ app.get('/api/dashboard', (req, res) => {
       T3: actifs.filter((d) => d.typ_v === 'T3').length,
       'T4+': actifs.filter((d) => ['T4', 'T5', 'T6'].includes(d.typ_v)).length,
     },
-  })
-})
+  });
+});
 
 // ─── EXPORT PDF FICHE CAL ────────────────────────────────────────────────────
 
 app.get('/api/cal/pdf/:logement_id', (req, res) => {
-  const { logement_id } = req.params
-  const tmpDir = join(__dirname, '../tmp')
-  if (!existsSync(tmpDir)) mkdirSync(tmpDir, { recursive: true })
+  const { logement_id } = req.params;
+  const tmpDir = join(__dirname, '../tmp');
+  if (!existsSync(tmpDir)) mkdirSync(tmpDir, { recursive: true });
 
-  const outPath = join(tmpDir, `CAL_${logement_id}_${Date.now()}.pdf`)
+  const outPath = join(tmpDir, `CAL_${logement_id}_${Date.now()}.pdf`);
 
-  const py = spawn('python3', [join(__dirname, 'generate_pdf.py'), logement_id, outPath])
+  const py = spawn('python3', [join(__dirname, 'generate_pdf.py'), logement_id, outPath]);
 
-  py.stderr.on('data', (d) => console.error('[PDF]', d.toString()))
+  py.stderr.on('data', (d) => console.error('[PDF]', d.toString()));
 
   py.on('close', (code) => {
     if (code !== 0) {
-      return res.status(500).json({ error: 'Erreur génération PDF' })
+      return res.status(500).json({ error: 'Erreur génération PDF' });
     }
 
     res.download(outPath, `Fiche_CAL_${logement_id}.pdf`, (err) => {
-      if (err) console.error(err)
+      if (err) console.error(err);
       try {
-        unlinkSync(outPath)
+        unlinkSync(outPath);
       } catch (e) {}
-    })
-  })
-})
-// servir le build React
-app.use(express.static(path.join(__dirname, '../dist')))
+    });
+  });
+});
 
-// fallback React
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'))
-})
+// ─── FRONT STATIC (optionnel si dist existe) ─────────────────────────────────
+
+if (existsSync(DIST_DIR) && existsSync(DIST_INDEX)) {
+  app.use(express.static(DIST_DIR));
+
+  app.get('*', (req, res) => {
+    res.sendFile(DIST_INDEX);
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.send('CALSmart API OK 🚀');
+  });
+}
+
 // ─── DÉMARRAGE ───────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT || 3000
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n🏠 CAL Smart — Serveur démarré`)
-  console.log(`   API  → [http://localhost:${PORT}/api`)
-  console.log(`   App  → [http://localhost:3000\n`)
-})
+  console.log('\n🏠 CAL Smart — Serveur démarré');
+  console.log(`API → [http://0.0.0.0:${PORT}/api`)
+  if (existsSync(DIST_INDEX)) {
+    console.log(`App → [http://0.0.0.0:${PORT}`)
+  } else {
+    console.log('App → aucun build React détecté (dist absent)');
+  }
+});
