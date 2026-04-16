@@ -1029,23 +1029,20 @@ app.get('/api/cal/pdf/:logement_id', (req, res) => {
 
 // ─── FRONT STATIC (optionnel si dist existe) ─────────────────────────────────
 
-const DIST_DIR = path.join(__dirname, '../dist')
-const DIST_INDEX = path.join(DIST_DIR, 'index.html')
+console.log('DIST_DIR =', DIST_DIR);
+console.log('DIST_INDEX =', DIST_INDEX);
+console.log('DIST exists =', existsSync(DIST_DIR));
+console.log('INDEX exists =', existsSync(DIST_INDEX));
 
-console.log('DIST_DIR =', DIST_DIR)
-console.log('DIST_INDEX =', DIST_INDEX)
-console.log('DIST exists =', existsSync(DIST_DIR))
-console.log('INDEX exists =', existsSync(DIST_INDEX))
-
-app.use(express.static(DIST_DIR))
+app.use(express.static(DIST_DIR));
 
 app.get('/', (req, res) => {
-  res.sendFile(DIST_INDEX)
-})
+  res.sendFile(DIST_INDEX);
+});
 
 app.get('/*', (req, res) => {
-  res.sendFile(DIST_INDEX)
-})
+  res.sendFile(DIST_INDEX);
+});
 // ─── DÉMARRAGE ───────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 3000;
