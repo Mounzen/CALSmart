@@ -26,20 +26,32 @@ export function useAuth() {
 function getToken() { return localStorage.getItem('cal_token'); }
 function setToken(t) { localStorage.setItem('cal_token', t); }
 function clearToken() { localStorage.removeItem('cal_token'); }
+const API_BASE = "https://calsmart-production.up.railway.app/api";
 
 async function apiFetch(path, options = {}) {
   const token = getToken();
-  const res = await fetch(`/api${path}`, {
+
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'x-auth-token': token } : {}),
-      ...options.headers,
+      "Content-Type": "application/json",
+      ...(token ? { "x-auth-token": token } : {}),
+      ...(options.headers || {})
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: options.body ? JSON.stringify(options.body) : undefined
   });
-  if (!res.ok) throw new Error(`${res.status}`);
-  return res.json();
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `Erreur API: ${res.status}`);
+  }
+
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return res.json();
+  }
+
+  return res.text();
 }
 
 export { apiFetch };
