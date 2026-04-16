@@ -1029,9 +1029,6 @@ app.get('/api/cal/pdf/:logement_id', (req, res) => {
 
 // ─── FRONT STATIC (optionnel si dist existe) ─────────────────────────────────
 
-const path = require("path");
-
-// 👉 servir le front (SANS condition)
 app.use(express.static(path.join(__dirname, "../dist")));
 
 app.get("*", (req, res) => {
